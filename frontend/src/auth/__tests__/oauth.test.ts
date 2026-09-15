@@ -20,6 +20,22 @@ import {
 
 const HANDSHAKE = 'a-handshake-this-tab-kept'
 
+function ensureSessionStorage(): void {
+  if (typeof globalThis.sessionStorage !== 'undefined') return
+
+  const values = new Map<string, string>()
+  globalThis.sessionStorage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: (key) => values.delete(key),
+    clear: () => values.clear(),
+    key: (index) => [...values.keys()][index] ?? null,
+    get length() {
+      return values.size
+    },
+  } as Storage
+}
+
 describe('startUrl', () => {
   it('points at the API, not at the frontend', () => {
     // The browser leaves SoftTrack from here, and it is the *API* that has to
@@ -49,6 +65,7 @@ describe('startProviderFlow', () => {
 
   beforeEach(() => {
     navigations.length = 0
+    ensureSessionStorage()
     sessionStorage.clear()
     globalThis.window = {
       get location() {
