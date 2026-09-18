@@ -142,6 +142,14 @@ def test_reading_a_number_in_the_wrong_team_is_a_404(client, issue, auth):
     assert response.status_code == 404
 
 
+def test_reading_an_issue_from_a_missing_team_is_a_404(client, team):
+    response = client.get(
+        "/teams/99999/issues/by-number/1",
+        headers=team["headers"],
+    )
+    assert response.status_code == 404
+
+
 def test_a_non_member_cannot_read_an_issue_by_team_number(client, issue, team, auth):
     outsider = auth(email="number-outsider@softtrack.dev")
     response = client.get(

@@ -60,7 +60,7 @@ describe('startUrl', () => {
 })
 
 describe('startProviderFlow', () => {
-  // Node already provides sessionStorage; only `window` is missing here.
+  // Node versions before 22 do not provide sessionStorage or window.
   const navigations: string[] = []
 
   beforeEach(() => {
