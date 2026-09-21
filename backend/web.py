@@ -7,7 +7,7 @@ neither routing (`app_*`) nor business logic (`lib_*`) lives here.
 from pathlib import Path
 
 from pydantic import model_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import inspect
 from sqlmodel import Session, create_engine
 
@@ -37,6 +37,24 @@ class Settings(BaseSettings):
     #: How long an invitation link stays usable. Long enough to survive a
     #: holiday, short enough that a link found in an old inbox is dead.
     invite_expire_days: int = 7
+
+    # --- Signing in with Google or GitHub -------------------------------
+    #: Both halves or neither: a provider is offered only when it has an id
+    #: *and* a secret, because a button that cannot complete a sign-in is
+    #: worse than no button. Blank by default, so a self-hosted install that
+    #: wants no external dependency gets email and password and nothing else.
+    #:
+    #: The redirect URI to register with the provider is built from
+    #: `api_base_url`:  {api_base_url}/auth/oauth/{provider}/callback
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    github_client_id: str = ""
+    github_client_secret: str = ""
+    #: How long the browser has to come back from the provider before the
+    #: half-finished sign-in expires. Ten minutes covers reading a consent
+    #: screen, finding a phone and typing a code; it does not cover a tab left
+    #: open until tomorrow.
+    oauth_state_expire_minutes: int = 10
 
     # --- The signed-out front door --------------------------------------
     #: False sends a signed-out visitor from / straight to /login, which is
@@ -103,8 +121,7 @@ class Settings(BaseSettings):
     #: `Authorization: Bearer <token>` to expose Prometheus metrics.
     metrics_token: str = ""
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
     @model_validator(mode="after")
     def _refuse_the_published_secret_in_production(self) -> "Settings":

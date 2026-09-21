@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app_identity.admin import router as admin_router
 from app_identity.identity import router as identity_router
+from app_identity.oauth import router as oauth_router
 from lib_identity.identity import warm_password_hasher
 from lib_softtrack.digest import digest_loop
 from lib_softtrack.metrics import PrometheusMiddleware, metrics_response
@@ -82,6 +83,7 @@ app.add_middleware(PrometheusMiddleware)
 
 
 app.include_router(identity_router)
+app.include_router(oauth_router)
 app.include_router(admin_router)
 app.include_router(teams_router)
 app.include_router(invites_router)
