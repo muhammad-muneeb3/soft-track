@@ -74,6 +74,7 @@ README, which show a team several cycles in.
 - [User management](docs/features/users.md)
 - [Sign-in rate limiting](docs/features/rate-limiting.md)
 - [Jira import](docs/features/jira-import.md)
+- [Prometheus metrics](docs/features/metrics.md)
 
 ## Development and contributing
 

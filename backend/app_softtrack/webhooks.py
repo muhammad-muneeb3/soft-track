@@ -26,6 +26,15 @@ from web import get_session
 
 router = APIRouter(tags=["webhooks"])
 
+_KNOWN_EVENTS = {
+    GitProvider.github: {"push", "pull_request"},
+    GitProvider.gitlab: {"Push Hook", "push", "Merge Request Hook", "merge_request"},
+}
+
+
+def _event_label(provider: GitProvider, event_name: str) -> str:
+    return event_name if event_name in _KNOWN_EVENTS[provider] else "other"
+
 
 async def _receive(
     request: Request,
@@ -37,15 +46,14 @@ async def _receive(
 ) -> WebhookReceipt:
     """Shared body for both providers. Only the header names differ."""
     provider_name = provider.value
-    WEBHOOK_DELIVERIES_IN.labels(
-        provider=provider_name, event=event_name or "unknown"
-    ).inc()
+    event_label = _event_label(provider, event_name)
     address = address_of(request)
     # Only *failed* verifications are counted, and a good one forgives the
     # address -- the same arrangement as the sign-in throttle. Charging every
     # delivery would throttle a busy repository for being busy, which is the
     # opposite of what this is for.
     webhook_by_address.raise_if_locked(address)
+    WEBHOOK_DELIVERIES_IN.labels(provider=provider_name, event=event_label).inc()
 
     body = await request.body()
     headers = {name.lower(): value for name, value in request.headers.items()}
@@ -57,7 +65,7 @@ async def _receive(
     except WebhookError as error:
         WEBHOOK_DELIVERIES_OUT.labels(
             provider=provider_name,
-            event=event_name or "unknown",
+            event=event_label,
             result=str(error.status),
         ).inc()
         webhook_by_address.record_attempt(address)
@@ -71,7 +79,7 @@ async def _receive(
     webhook_by_address.forgive(address)
     WEBHOOK_DELIVERIES_OUT.labels(
         provider=provider_name,
-        event=event_name or "unknown",
+        event=event_label,
         result="success",
     ).inc()
     return receipt

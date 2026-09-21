@@ -78,6 +78,7 @@ def test_metrics_require_the_configured_bearer_token(monkeypatch):
 
     assert asgi_get(app, "/metrics")[0] == 401
     assert asgi_get(app, "/metrics", [(b"authorization", b"Bearer wrong")])[0] == 401
+    assert asgi_get(app, "/metrics", [(b"authorization", b"Bearer \xff")])[0] == 401
 
     status, body = asgi_get(
         app, "/metrics", [(b"authorization", b"Bearer metrics-secret")]

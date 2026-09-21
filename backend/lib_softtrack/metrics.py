@@ -37,6 +37,8 @@ NOTIFICATION_DIGEST_SENDS = Counter(
     "Notification digest email send attempts.",
     ("result",),
 )
+NOTIFICATION_DIGEST_SENDS.labels(result="success")
+NOTIFICATION_DIGEST_SENDS.labels(result="failure")
 NOTIFICATION_DIGEST_PENDING = Gauge(
     "softtrack_notification_digest_pending_notifications",
     "Notifications eligible for the most recent digest tick.",

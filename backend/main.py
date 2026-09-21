@@ -112,6 +112,8 @@ async def metrics(authorization: str | None = Header(default=None)):
     if not settings.metrics_token:
         raise HTTPException(status_code=404, detail="Not found")
     expected = f"Bearer {settings.metrics_token}"
-    if authorization is None or not secrets.compare_digest(authorization, expected):
+    if authorization is None or not secrets.compare_digest(
+        authorization.encode("latin-1"), expected.encode("latin-1")
+    ):
         raise HTTPException(status_code=401, detail="Not authenticated")
     return metrics_response()
