@@ -6,7 +6,7 @@ from prometheus_client import REGISTRY
 from lib_softtrack import comments as comments_service
 from lib_softtrack import issues as issues_service
 from lib_softtrack import teams as teams_service
-from lib_softtrack.metrics import PrometheusMiddleware
+from lib_softtrack.metrics import PrometheusMiddleware, check_metrics_token
 from lib_softtrack.models.comments import CommentCreate
 from lib_softtrack.models.issues import IssueCreate
 from lib_softtrack.models.teams import TeamCreate
@@ -19,7 +19,12 @@ def sample(name: str, labels: dict[str, str] | None = None) -> float:
     return REGISTRY.get_sample_value(name, labels or {}) or 0.0
 
 
-def asgi_get(target_app, path: str, headers: list[tuple[bytes, bytes]] | None = None):
+def asgi_get(
+    target_app,
+    path: str,
+    headers: list[tuple[bytes, bytes]] | None = None,
+    method: str = "GET",
+):
     async def run():
         messages = []
         received = False
@@ -38,7 +43,7 @@ def asgi_get(target_app, path: str, headers: list[tuple[bytes, bytes]] | None = 
             {
                 "type": "http",
                 "asgi": {"version": "3.0"},
-                "method": "GET",
+                "method": method,
                 "path": path,
                 "root_path": "",
                 "scheme": "http",
@@ -86,6 +91,26 @@ def test_metrics_require_the_configured_bearer_token(monkeypatch):
 
     assert status == 200
     assert b"softtrack_http_requests_total" in body
+
+
+def test_metrics_accept_a_unicode_configured_token():
+    check_metrics_token("Bearer токен", "токен")
+
+
+def test_unknown_http_methods_use_a_bounded_label():
+    routed = FastAPI()
+    routed.add_middleware(PrometheusMiddleware)
+
+    status, _body = asgi_get(routed, "/missing", method="BLAHBLAH")
+
+    assert status == 404
+    assert (
+        sample(
+            "softtrack_http_requests_total",
+            {"method": "other", "route": "unmatched", "status": "404"},
+        )
+        >= 1
+    )
 
 
 def test_http_metrics_use_route_templates():

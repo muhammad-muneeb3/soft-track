@@ -48,12 +48,10 @@ async def _receive(
     provider_name = provider.value
     event_label = _event_label(provider, event_name)
     address = address_of(request)
-    # Only *failed* verifications are counted, and a good one forgives the
-    # address -- the same arrangement as the sign-in throttle. Charging every
-    # delivery would throttle a busy repository for being busy, which is the
-    # opposite of what this is for.
-    webhook_by_address.raise_if_locked(address)
     WEBHOOK_DELIVERIES_IN.labels(provider=provider_name, event=event_label).inc()
+    # A delivery rejected by the throttle is still a delivery received. A good
+    # one forgives the address -- the same arrangement as the sign-in throttle.
+    webhook_by_address.raise_if_locked(address)
 
     body = await request.body()
     headers = {name.lower(): value for name, value in request.headers.items()}

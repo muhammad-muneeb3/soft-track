@@ -1,8 +1,10 @@
 """Prometheus metrics for operators running SoftTrack themselves."""
 
+import asyncio
+import secrets
 import time
 
-from fastapi import Response
+from fastapi import HTTPException, Response
 from prometheus_client import (
     CONTENT_TYPE_LATEST,
     Counter,
@@ -55,6 +57,22 @@ WEBHOOK_DELIVERIES_OUT = Counter(
     ("provider", "event", "result"),
 )
 
+_KNOWN_METHODS = frozenset(
+    {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "TRACE"}
+)
+
+
+def _method_label(method: str) -> str:
+    return method if method in _KNOWN_METHODS else "other"
+
+
+def check_metrics_token(authorization: str | None, configured_token: str) -> None:
+    expected = f"Bearer {configured_token}"
+    if authorization is None or not secrets.compare_digest(
+        authorization.encode("utf-8"), expected.encode("utf-8")
+    ):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
 
 def metrics_response() -> Response:
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
@@ -78,19 +96,25 @@ class PrometheusMiddleware:
             return
 
         start = time.perf_counter()
-        status = 500
+        status: int | str = 500
+        response_started = False
 
         async def send_wrapper(message: Message) -> None:
-            nonlocal status
+            nonlocal response_started, status
             if message["type"] == "http.response.start":
                 status = message["status"]
+                response_started = True
             await send(message)
 
         try:
             await self.app(scope, receive, send_wrapper)
+        except asyncio.CancelledError:
+            if not response_started:
+                status = "disconnected"
+            raise
         finally:
             labels = {
-                "method": scope["method"],
+                "method": _method_label(scope["method"]),
                 "route": _route_template(scope),
                 "status": str(status),
             }

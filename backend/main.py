@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import secrets
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Header, HTTPException
@@ -11,7 +10,11 @@ from app_identity.identity import router as identity_router
 from app_identity.oauth import router as oauth_router
 from lib_identity.identity import warm_password_hasher
 from lib_softtrack.digest import digest_loop
-from lib_softtrack.metrics import PrometheusMiddleware, metrics_response
+from lib_softtrack.metrics import (
+    PrometheusMiddleware,
+    check_metrics_token,
+    metrics_response,
+)
 from app_softtrack.attachments import router as attachments_router
 from app_softtrack.automations import router as automations_router
 from app_softtrack.comments import router as comments_router
@@ -113,9 +116,5 @@ def health():
 async def metrics(authorization: str | None = Header(default=None)):
     if not settings.metrics_token:
         raise HTTPException(status_code=404, detail="Not found")
-    expected = f"Bearer {settings.metrics_token}"
-    if authorization is None or not secrets.compare_digest(
-        authorization.encode("latin-1"), expected.encode("latin-1")
-    ):
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    check_metrics_token(authorization, settings.metrics_token)
     return metrics_response()
